@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"sync"
@@ -40,12 +41,23 @@ func TestQuotaDeadlineScreenshotScenario(t *testing.T) {
 		deadlineAuth("middle", now, .78, 81*time.Hour),
 	}
 	s := &QuotaDeadlineSelector{nowFunc: func() time.Time { return now }}
-	for range 50 {
-		pickDeadline(t, s, auths, "earlier")
+	counts := map[string]int{}
+	for range 600 {
+		got, err := s.Pick(context.Background(), "claude", "claude-sonnet", cliproxyexecutor.Options{}, auths)
+		if err != nil {
+			t.Fatal(err)
+		}
+		counts[got.ID]++
 	}
-	// Same deadline does not imply equal urgency: remaining capacity matters.
-	auths[1] = deadlineAuth("earlier", now, .99, 67*time.Hour)
-	pickDeadline(t, s, auths, "later")
+	total := .36/98 + .79/67 + .22/81
+	for _, a := range auths {
+		urgency, _, _ := quotaDeadlineScore(a, now)
+		want := 600 * urgency / total
+		if math.Abs(float64(counts[a.ID])-want) > 1 {
+			t.Fatalf("%s got %d want approximately %.2f", a.ID, counts[a.ID], want)
+		}
+	}
+
 }
 
 func TestQuotaDeadlineTelemetryValidation(t *testing.T) {
