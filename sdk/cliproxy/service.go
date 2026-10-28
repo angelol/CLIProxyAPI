@@ -105,6 +105,10 @@ type Service struct {
 	// shutdownOnce ensures shutdown is called only once.
 	shutdownOnce sync.Once
 
+	quotaRefreshMu     sync.Mutex
+	quotaRefreshCancel context.CancelFunc
+	quotaRefreshDone   chan struct{}
+
 	// wsGateway manages websocket Gemini providers.
 	wsGateway *wsrelay.Manager
 

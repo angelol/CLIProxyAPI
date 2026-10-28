@@ -164,6 +164,7 @@ type Manager struct {
 	homeSessionLocks      sync.Map
 	homeSessionAliases    homeSessionAliasCache
 	// providerOffsets tracks per-model provider rotation state for multi-provider routing.
+	quotaLoad                   quotaRequestLoad
 	providerOffsets             map[string]int
 	homeDispatchBundle          atomic.Pointer[HomeDispatchBundle]
 	homeInFlightPublisherConfig atomic.Pointer[HomeInFlightPublisherConfig]
