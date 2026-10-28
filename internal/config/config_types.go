@@ -320,6 +320,9 @@ type DiscoveryConfig struct {
 
 // RemoteManagement holds management API configuration under 'remote-management'.
 type RemoteManagement struct {
+	// AllowLocalWithoutKey permits same-origin management on a literal loopback listener.
+	// It is ignored for non-loopback listeners or when AllowRemote is enabled.
+	AllowLocalWithoutKey bool `yaml:"allow-local-without-key"`
 	// AllowRemote toggles remote (non-localhost) access to management API.
 	AllowRemote bool `yaml:"allow-remote"`
 	// SecretKey is the management key (plaintext or bcrypt hashed). YAML key intentionally 'secret-key'.

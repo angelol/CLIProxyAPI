@@ -19,7 +19,7 @@ func (s *Server) registerManagementRoutes() {
 		return
 	}
 
-	log.Info("management routes registered after secret key configuration")
+	log.Info("management routes registered")
 
 	s.engine.POST("/v0/management/oauth-callback", s.managementAvailabilityMiddleware(), s.mgmt.PostOAuthCallback)
 	s.engine.GET("/v0/management/oauth-callback", s.managementAvailabilityMiddleware(), s.mgmt.GetOAuthCallback)
@@ -333,5 +333,9 @@ func (s *Server) serveManagementControlPanel(c *gin.Context) {
 		}
 	}
 
+	if s.mgmt != nil && s.mgmt.LocalWithoutKeyEnabled() {
+		s.serveLoopbackManagementPanel(c, filePath)
+		return
+	}
 	c.File(filePath)
 }
