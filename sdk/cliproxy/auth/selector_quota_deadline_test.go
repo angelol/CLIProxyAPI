@@ -136,16 +136,15 @@ func TestQuotaDeadlineResetStalenessAndRefresh(t *testing.T) {
 	b := deadlineAuth("b", now, .3, 48*time.Hour)
 	pickDeadline(t, s, []*Auth{a, b}, "a")
 	now = now.Add(time.Minute)
-	// The old window is no longer evidence of available quota, so probe it.
-	for range quotaProbeInterval - 1 {
+	// Expired observations do not cause a user request to probe the account.
+	for range 40 {
 		pickDeadline(t, s, []*Auth{a, b}, "b")
 	}
-	pickDeadline(t, s, []*Auth{a, b}, "a")
 	// A refreshed window re-enters ranking with its new deadline.
 	a.Quota = deadlineAuth("a", now, 0, 7*24*time.Hour).Quota
 	pickDeadline(t, s, []*Auth{a, b}, "b")
 	now = now.Add(quotaObservationMaxAge)
-	// Both observations have aged out: sticky or not, explore the whole pool.
+	// New placements use round-robin when all observations have aged out.
 	seen := map[string]bool{}
 	for range 2 {
 		got, err := s.Pick(context.Background(), "claude", "model", cliproxyexecutor.Options{}, []*Auth{a, b})
@@ -159,7 +158,7 @@ func TestQuotaDeadlineResetStalenessAndRefresh(t *testing.T) {
 	}
 }
 
-func TestQuotaDeadlineSubagentCannotInheritUncompetitiveAccount(t *testing.T) {
+func TestQuotaDeadlineSubagentKeepsWarmParentAccount(t *testing.T) {
 	now := time.Now()
 	s := NewSessionAffinitySelector(&QuotaDeadlineSelector{nowFunc: func() time.Time { return now }})
 	defer s.Stop()
@@ -172,12 +171,12 @@ func TestQuotaDeadlineSubagentCannotInheritUncompetitiveAccount(t *testing.T) {
 	a.Quota = deadlineAuth("a", now, .99, 24*time.Hour).Quota
 	child := cliproxyexecutor.Options{Headers: http.Header{"X-Task-Id": {"child"}, "X-Parent-Task-Id": {"parent"}}}
 	got, err = s.Pick(context.Background(), "claude", "model", child, []*Auth{a, b})
-	if err != nil || got.ID != "b" {
-		t.Fatalf("child inherited stale choice: %v %v", got, err)
+	if err != nil || got.ID != "a" {
+		t.Fatalf("child lost warm parent binding: %v %v", got, err)
 	}
 }
 
-func TestQuotaDeadlineProbesWithAffinity(t *testing.T) {
+func TestQuotaDeadlineNeverProbesWithUserRequests(t *testing.T) {
 	now := time.Now()
 	for _, mode := range []string{"none", "explicit", "lcp"} {
 		t.Run(mode, func(t *testing.T) {
@@ -199,8 +198,8 @@ func TestQuotaDeadlineProbesWithAffinity(t *testing.T) {
 				}
 				counts[got.ID]++
 			}
-			if counts["known"] != 38 || counts[b.ID] != 1 || counts[c.ID] != 1 {
-				t.Fatalf("probe distribution: %v", counts)
+			if counts["known"] != 40 || counts[b.ID] != 0 || counts[c.ID] != 0 {
+				t.Fatalf("unexpected discovery traffic: %v", counts)
 			}
 		})
 	}
@@ -219,7 +218,7 @@ func deadlineOptions(mode string) cliproxyexecutor.Options {
 	return opts
 }
 
-func TestQuotaDeadlineAffinityRebalancesAndKeepsNearTies(t *testing.T) {
+func TestQuotaDeadlineAffinitySurvivesUrgencyChanges(t *testing.T) {
 	now := time.Now()
 	for _, mode := range []string{"explicit", "lcp"} {
 		t.Run(mode, func(t *testing.T) {
@@ -239,7 +238,9 @@ func TestQuotaDeadlineAffinityRebalancesAndKeepsNearTies(t *testing.T) {
 			b.Quota = deadlineAuth("b", now, .45, 48*time.Hour).Quota
 			pick("a") // b leads by 10%; keep the warm binding.
 			b.Quota = deadlineAuth("b", now, .1, 24*time.Hour).Quota
-			pick("b") // b is substantially more urgent, even in the same session.
+			pick("a") // Strong affinity survives even a large urgency difference.
+			a.Disabled = true
+			pick("b") // Genuine unavailability still fails over.
 		})
 	}
 }
@@ -271,8 +272,47 @@ func TestQuotaDeadlineFallbackAndConcurrency(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	if got := probes.Load(); got != 80 {
-		t.Fatalf("concurrent probe count=%d, want 80", got)
+	if got := probes.Load(); got != 0 {
+		t.Fatalf("concurrent probe count=%d, want 0", got)
+	}
+}
+
+func TestQuotaDeadlineLongSessionKeepsAccountWhileNewSessionUsesFreshScores(t *testing.T) {
+	for _, mode := range []string{"explicit", "lcp"} {
+		t.Run(mode, func(t *testing.T) {
+			now := time.Now()
+			q := &QuotaDeadlineSelector{nowFunc: func() time.Time { return now }}
+			s := NewSessionAffinitySelector(q)
+			defer s.Stop()
+			a := deadlineAuth("warm", now, .2, 24*time.Hour)
+			b := &Auth{ID: "unknown", Provider: "claude"}
+			pick := func(want string) {
+				t.Helper()
+				got, err := s.Pick(context.Background(), "claude", "claude-sonnet", deadlineOptions(mode), []*Auth{a, b})
+				if err != nil || got.ID != want {
+					t.Fatalf("got %v %v want %s", got, err, want)
+				}
+			}
+			pick("warm")
+			// Background polling discovers a much more urgent account. The current
+			// conversation must not incur cache creation there, even after 100 turns.
+			b.Quota = deadlineAuth("unknown", now, 0, 2*time.Hour).Quota
+			for range 100 {
+				pick("warm")
+			}
+			pickDeadline(t, q, []*Auth{a, b}, "unknown")
+			// Missing telemetry is not evidence that the bound account is unusable.
+			a.Quota.ObservedAt = now.Add(-quotaObservationMaxAge)
+			for range 100 {
+				pick("warm")
+			}
+			// Authoritative exhausted-window feedback does require a switch.
+			a.Quota = deadlineAuth("warm", now, 1, 24*time.Hour).Quota
+			pick("unknown")
+			// Recovery must not immediately move the conversation back again.
+			a.Quota = deadlineAuth("warm", now, 0, time.Hour).Quota
+			pick("unknown")
+		})
 	}
 }
 

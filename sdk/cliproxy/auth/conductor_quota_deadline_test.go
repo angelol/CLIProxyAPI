@@ -116,12 +116,20 @@ func TestManagerQuotaDeadlineExecutionAndFeedback(t *testing.T) {
 				if got := quotaSignal(stored.Quota.Signals, "Anthropic-Ratelimit-Unified-7d-Utilization"); got != "0.999" {
 					t.Fatalf("response observation=%q", got)
 				}
-				if got := run(); got != b.ID {
-					t.Fatalf("feedback did not rebalance: got %q want %q", got, b.ID)
+				want := b.ID
+				if affinity {
+					want = a.ID
+				}
+				if got := run(); got != want {
+					t.Fatalf("feedback selection: got %q want %q", got, want)
 				}
 				retry := time.Hour
-				manager.MarkResult(context.Background(), Result{AuthID: b.ID, Provider: "claude", Model: upstream, RetryAfter: &retry, Error: &Error{HTTPStatus: 429, Message: "quota"}})
-				if got := run(); got != a.ID {
+				manager.MarkResult(context.Background(), Result{AuthID: want, Provider: "claude", Model: upstream, RetryAfter: &retry, Error: &Error{HTTPStatus: 429, Message: "quota"}})
+				other := a.ID
+				if affinity {
+					other = b.ID
+				}
+				if got := run(); got != other {
 					t.Fatalf("cooldown did not fail over: %q", got)
 				}
 			})

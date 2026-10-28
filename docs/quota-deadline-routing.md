@@ -3,7 +3,8 @@
 `quota-deadline` is an experimental, opt-in strategy for pools of Claude
 subscription accounts whose weekly limits reset at different times. Round-robin
 can spend capacity on a later-reset account while earlier capacity expires
-unused. This strategy favors the account with the highest required spending rate:
+unused. This strategy places new sessions on the account with the highest required
+spending rate, then keeps each ongoing session on its account to preserve caches:
 
 ```
 urgency = capacity_weight × remaining_weekly_fraction / hours_until_reset
@@ -53,10 +54,13 @@ credentials uses quota routing even when the execution path calls it `mixed`.
    with surviving candidates, then rank that tier by urgency.
 4. Choose maximum urgency, rotating exact ties. The time denominator has a
    one-hour floor to keep the final seconds before reset from dominating.
-5. With session affinity enabled, keep an existing binding only if its urgency
-   is at least 80% of the best candidate's. This applies to explicit sessions,
-   inferred conversation matches, and inherited parent/subagent bindings. It
-   re-evaluates at request boundaries, including within long-lived sessions.
+5. With session affinity enabled, retain an existing usable binding regardless
+   of changes in urgency, credential priority, or observation freshness. This
+   applies to explicit sessions, inferred conversation matches, and inherited
+   parent/subagent bindings. Exhausted windows, disabled accounts, zero weights,
+   and normal runtime eligibility checks still cause failover. Once switched,
+   the session stays on its new account even if the original account recovers.
+   There are no periodic discovery requests and no 80% urgency threshold.
 
 Only shared subscription windows enter the score. `7d_oi`/overage claims are not
 treated as a shared weekly budget. Existing model-specific cooldowns remain in
@@ -66,48 +70,65 @@ window and then fail over; the purpose is to reduce unused weekly quota.
 
 ## Freshness and discovery
 
-No new credentials, polling endpoints, or background requests are needed. The
-proxy already captures quota headers from real upstream responses, including
-streaming responses. Utilization is a fraction (0–1), and resets are Unix seconds.
-Missing or invalid weekly utilization/reset data gives an unknown urgency score.
-Non-finite usage, future-dated observations, expired weekly windows, and
-observations at least 15 minutes old also give an unknown score. Reset timestamps
-more than eight days ahead are ignored. A valid unexpired rejection can still
-block an account when utilization is missing.
+The service refreshes Claude OAuth quota at startup and every five minutes while
+`quota-deadline` is enabled, using `GET https://api.anthropic.com/api/oauth/usage`
+(the endpoint used by the management dashboard). These calls send no prompts,
+create no inference cache, and do not execute a model. Existing OAuth credentials
+and configured proxies are used; redirects are rejected. Disabled accounts,
+API-key credentials, custom upstreams, other providers, and Home scheduling are
+excluded. Config changes are checked on each cycle and before each account.
+The worker stops with the service. Failed calls are retried on the next cycle,
+without using real requests as a fallback probe. The endpoint is provider-specific
+and may change; failures retain the last observation until it becomes stale.
 
-If some accounts have usable observations, every twentieth selection with
-unknown candidates probes one unknown account, rotating those probes separately
-from ranked traffic. If all are unknown, selection uses round-robin until
-observations arrive. These probes are real user requests and can break affinity.
-They still respect eligibility and the selected priority tier. Under low traffic
-or a large pool, discovery may take a while. An account that never supplies quota
-headers remains on probe traffic when measured peers exist.
+The shared `five_hour` and `seven_day` percentages and reset times are converted
+to the same quota observations as inference response headers. No model-specific
+or overage allowance is treated as a shared weekly budget. A slow poll cannot
+replace feedback recorded after that poll started. Polling does not replace
+credentials, clear runtime cooldowns, or move session bindings. A manual usage
+reset can refresh observed availability, but an existing runtime cooldown still
+requires its normal recovery or manual intervention.
 
-Quota observations are in memory; a restart starts discovery again. A banked
-usage reset can be recognized through refreshed response headers only after
-the account becomes eligible to send a request. This feature does **not** clear
-an existing runtime cooldown or poll for manual resets. The previous manual
-cooldown intervention may still be necessary.
+Real inference responses continue to refresh observations. Missing or invalid
+weekly utilization/reset data gives an unknown urgency score. Non-finite usage,
+future-dated observations, expired weekly windows, and observations at least
+15 minutes old also give an unknown score. Reset timestamps more than eight days
+ahead are ignored. A valid unexpired rejection can still block an account when
+utilization is missing.
+
+For new placements, measured accounts are preferred over unknown accounts in the
+highest eligible priority tier. If all are unknown, use round-robin for that new
+placement. An existing session does not move just because its observations are
+unknown or stale. If background refresh is unavailable, an unused account may
+remain undiscovered while measured peers remain usable; no coding request is
+sacrificed to discover it. Quota observations and affinity bindings are in memory,
+so a restart starts placement afresh. Embedded users of the selector alone must
+provide observations themselves; the polling worker belongs to the service.
 
 ## Tradeoffs and evaluation
 
 This is a heuristic, not an optimal scheduler or a guarantee that every quota
 will be consumed. Requests have different costs, utilization reports can lag,
 and concurrent requests may pick the same account before feedback arrives.
-Rebalancing can lose prompt-cache locality. Separate proxy processes make
+Strong affinity deliberately trades some quota utilization for prompt-cache locality.
+Requests with no recognized session identity are ranked separately. Separate proxy processes make
 independent decisions from their own observations; they do not coordinate.
 
 Test one isolated instance before a production rollout. Compare unused weekly
 capacity at resets, five-hour throttling, account selection, latency, and prompt
 cache usage against the current strategy under comparable traffic. The existing
 management account observations and request logs can show which account was
-selected and what quota headers were last seen. Do not interpret probe traffic
-or an old observation as proof of a provider's current available quota.
+selected and what quota was last observed. New placement logs include urgency
+and whether it was known; affinity logs show reuse. Background refresh logs do
+not contain tokens or response bodies. Old observations are not proof of current
+available quota.
 
 Automated tests cover the staggered-reset example, reset transitions, stale and
-invalid data, cold-start exploration, priorities/weights, cooldowns, aliases,
+invalid data, cold-start placement, priorities/weights, cooldowns, aliases,
 explicit/inferred/subagent affinity, hot reload, concurrent selections, and
-quota feedback through selection, normal execution, and streaming. A deterministic
+quota feedback through selection, normal execution, and streaming. Additional
+regressions cover 200-turn warm sessions, background refresh conversion and
+failures, stale responses, credential replacement, and cancellation. A deterministic
 equal-demand simulation compares unused early-expiring capacity against
 round-robin; its result illustrates the policy rather than forecasting real
 Claude usage.

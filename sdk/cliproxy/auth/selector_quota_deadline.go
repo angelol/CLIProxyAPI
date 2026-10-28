@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v7/sdk/cliproxy/executor"
@@ -15,19 +14,14 @@ import (
 const (
 	quotaObservationMaxAge = 15 * time.Minute
 	quotaDeadlineFloor     = time.Hour
-	quotaProbeInterval     = 20
-	quotaAffinityRatio     = 0.8
 )
 
 // QuotaDeadlineSelector favors Claude subscription capacity that would otherwise
 // expire unused. Its zero value is ready for use. Other providers use round-robin.
 // Observations are advisory: this selector never clears the manager's cooldowns.
 type QuotaDeadlineSelector struct {
-	mu          sync.Mutex
-	probes      map[string]uint64
-	rotation    RoundRobinSelector
-	exploration RoundRobinSelector
-	nowFunc     func() time.Time
+	rotation RoundRobinSelector
+	nowFunc  func() time.Time
 }
 
 type quotaDeadlinePreparedKey struct{}
@@ -40,7 +34,7 @@ func (s *QuotaDeadlineSelector) now() time.Time {
 }
 
 // prepare runs once per selection, before any explicit or inferred affinity
-// lookup. A binding may survive only within 20% of the best urgency score.
+// lookup. Only genuine unavailability may break an existing warm binding.
 func (s *QuotaDeadlineSelector) prepare(ctx context.Context, provider, model string, opts cliproxyexecutor.Options, auths []*Auth) (context.Context, []*Auth, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -57,12 +51,10 @@ func (s *QuotaDeadlineSelector) prepare(ctx context.Context, provider, model str
 	if err != nil {
 		return ctx, nil, err
 	}
-	var eligible, unknown, measured []*Auth
-	scores := make(map[string]float64, len(available))
-	knownScores := make(map[string]bool, len(available))
+	var eligible []*Auth
 	var earliest time.Time
 	for _, a := range available {
-		score, known, blockedUntil := quotaDeadlineScore(a, now)
+		_, _, blockedUntil := quotaDeadlineScore(a, now)
 		if !blockedUntil.IsZero() {
 			if earliest.IsZero() || blockedUntil.Before(earliest) {
 				earliest = blockedUntil
@@ -70,49 +62,11 @@ func (s *QuotaDeadlineSelector) prepare(ctx context.Context, provider, model str
 			continue
 		}
 		eligible = append(eligible, a)
-		scores[a.ID] = score
-		knownScores[a.ID] = known
 	}
 	if len(eligible) == 0 {
 		return ctx, nil, NewModelCooldownError(model, provider, earliest.Sub(now))
 	}
-	var best float64
-	for _, a := range highestPriorityAuths(eligible) {
-		if !knownScores[a.ID] {
-			unknown = append(unknown, a)
-		} else {
-			measured = append(measured, a)
-			best = math.Max(best, scores[a.ID])
-		}
-	}
-	// Probes are real user requests, not background traffic. Even sticky sessions
-	// must occasionally visit unmeasured accounts so new/reset accounts can join.
-	probe := false
-	if len(unknown) > 0 && len(measured) > 0 {
-		key := provider + ":" + canonicalModelKey(model)
-		s.mu.Lock()
-		_, exists := s.probes[key]
-		if s.probes == nil || (!exists && len(s.probes) >= 4096) {
-			s.probes = make(map[string]uint64)
-		}
-		s.probes[key] = (s.probes[key] + 1) % quotaProbeInterval
-		probe = s.probes[key] == 0
-		s.mu.Unlock()
-	}
-	if len(measured) == 0 || probe {
-		a, errPick := s.exploration.Pick(ctx, provider, model, opts, unknown)
-		if errPick != nil {
-			return ctx, nil, errPick
-		}
-		return ctx, []*Auth{a}, nil
-	}
-	preferred := make([]*Auth, 0, len(measured))
-	for _, a := range measured {
-		if scores[a.ID] >= best*quotaAffinityRatio {
-			preferred = append(preferred, a)
-		}
-	}
-	return ctx, preferred, nil
+	return ctx, eligible, nil
 }
 
 func (s *QuotaDeadlineSelector) Pick(ctx context.Context, provider, model string, opts cliproxyexecutor.Options, auths []*Auth) (*Auth, error) {
@@ -127,15 +81,28 @@ func (s *QuotaDeadlineSelector) Pick(ctx context.Context, provider, model string
 	var best float64
 	var tied []*Auth
 	now := s.now()
-	for _, a := range candidates {
-		score, _, _ := quotaDeadlineScore(a, now)
+	var unknown []*Auth
+	for _, a := range highestPriorityAuths(candidates) {
+		score, known, _ := quotaDeadlineScore(a, now)
+		if !known {
+			unknown = append(unknown, a)
+			continue
+		}
 		if len(tied) == 0 || score > best {
 			best, tied = score, []*Auth{a}
 		} else if score == best {
 			tied = append(tied, a)
 		}
 	}
-	return s.rotation.Pick(ctx, provider, model, opts, tied)
+	known := len(tied) > 0
+	if !known {
+		tied = unknown
+	}
+	a, err := s.rotation.Pick(ctx, provider, model, opts, tied)
+	if err == nil && a != nil {
+		selectorLogEntry(ctx).Infof("quota-deadline: account selected | auth=%s provider=%s model=%s quota_known=%t urgency=%.6f", a.ID, provider, model, known, best)
+	}
+	return a, err
 }
 
 // quotaDeadlineScore uses shared subscription windows only. Overage and
