@@ -50,6 +50,8 @@ type Handler struct {
 	authManager             *coreauth.Manager
 	tokenStore              coreauth.Store
 	localPassword           string
+	loopbackListener        bool
+	listenerPort            int
 	allowRemoteOverride     bool
 	envSecret               string
 	logDir                  string
@@ -81,6 +83,10 @@ func NewHandler(cfg *config.Config, configFilePath string, manager *coreauth.Man
 		tokenStore:          sdkAuth.GetTokenStore(),
 		allowRemoteOverride: envSecret != "",
 		envSecret:           envSecret,
+	}
+	if cfg != nil {
+		h.loopbackListener = isLoopbackIP(cfg.Host)
+		h.listenerPort = cfg.Port
 	}
 	h.startAttemptCleanup()
 	return h
@@ -261,7 +267,7 @@ func (h *Handler) SetPostAuthPersistHook(hook coreauth.PostAuthHook) {
 }
 
 // Middleware enforces access control for management endpoints.
-// All requests (local and remote) require a valid management key.
+// Requests require a valid management key unless guarded loopback access is enabled.
 // Additionally, remote access requires allow-remote-management=true.
 func (h *Handler) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -269,6 +275,17 @@ func (h *Handler) Middleware() gin.HandlerFunc {
 		c.Header("X-CPA-COMMIT", buildinfo.Commit)
 		c.Header("X-CPA-BUILD-DATE", buildinfo.BuildDate)
 		c.Header("X-CPA-SUPPORT-PLUGIN", pluginhost.SupportPluginHeaderValue())
+
+		if h.LocalWithoutKeyEnabled() {
+			c.Header("Access-Control-Allow-Origin", "")
+			c.Header("Cache-Control", "no-store")
+			if !h.LocalWithoutKeyRequestAllowed(c.Request) {
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "passwordless management requires a direct, same-origin loopback request"})
+				return
+			}
+			c.Next()
+			return
+		}
 
 		clientIP := c.ClientIP()
 		localClient := clientIP == "127.0.0.1" || clientIP == "::1"

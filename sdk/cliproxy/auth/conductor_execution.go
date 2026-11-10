@@ -480,7 +480,17 @@ func (m *Manager) executeMixedOnce(ctx context.Context, providers []string, req 
 	attempted := make(map[string]struct{})
 	var lastErr error
 	var upstreamErr error
+	var releaseQuota func()
+	defer func() {
+		if releaseQuota != nil {
+			releaseQuota()
+		}
+	}()
 	for {
+		if releaseQuota != nil {
+			releaseQuota()
+		}
+		releaseQuota = nil
 		if maxRetryCredentials > 0 && len(attempted) >= maxRetryCredentials {
 			if lastErr != nil {
 				return cliproxyexecutor.Response{}, preferredExecutionAttemptError(lastErr, upstreamErr)
@@ -501,6 +511,7 @@ func (m *Manager) executeMixedOnce(ctx context.Context, providers []string, req 
 			return cliproxyexecutor.Response{}, errPick
 		}
 
+		releaseQuota = m.beginQuotaRequest(auth, homeMode)
 		entry := logEntryWithRequestID(ctx)
 		debugLogAuthSelection(entry, auth, provider, routeModel)
 		publishSelectedAuthMetadata(opts.Metadata, auth)
@@ -916,7 +927,17 @@ func (m *Manager) executeStreamMixedOnce(ctx context.Context, providers []string
 	var lastErr error
 	var upstreamErr error
 	var roundTiming homeRetryRoundTiming
+	var releaseQuota func()
+	defer func() {
+		if releaseQuota != nil {
+			releaseQuota()
+		}
+	}()
 	for {
+		if releaseQuota != nil {
+			releaseQuota()
+		}
+		releaseQuota = nil
 		allowSameAuthRetry := homeMode && homeSameAuthRetryPending && lastHomeAuthID != "" && homeSameAuthRetries[lastHomeAuthID] == 0
 		if maxRetryCredentials > 0 && len(attempted) >= maxRetryCredentials && !allowSameAuthRetry {
 			if lastErr != nil {
@@ -1016,6 +1037,7 @@ func (m *Manager) executeStreamMixedOnce(ctx context.Context, providers []string
 			}
 		}
 
+		releaseQuota = m.beginQuotaRequest(auth, homeMode)
 		entry := logEntryWithRequestID(ctx)
 		debugLogAuthSelection(entry, auth, provider, routeModel)
 		if selection != nil {
@@ -1212,7 +1234,9 @@ func (m *Manager) executeStreamMixedOnce(ctx context.Context, providers []string
 			}
 			return wrapHomeStream(ctx, streamResult, selection, releaseAttempt), nil
 		}
-		return streamResult, nil
+		wrapped := wrapQuotaLoadStream(ctx, streamResult, releaseQuota)
+		releaseQuota = nil // The stream owns release until completion or cancellation.
+		return wrapped, nil
 	}
 }
 

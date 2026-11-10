@@ -131,7 +131,14 @@ func (s *Server) UpdateClientsContext(ctx context.Context, cfg *config.Config) b
 		prevSecretEmpty = oldCfg.RemoteManagement.SecretKey == ""
 	}
 	newSecretEmpty := cfg.RemoteManagement.SecretKey == ""
-	if s.envManagementSecret {
+	// Update the handler before checking local mode so hot toggles take effect.
+	if s.mgmt != nil {
+		s.mgmt.SetConfig(cfg)
+	}
+	if s.mgmt != nil && s.mgmt.LocalWithoutKeyEnabled() {
+		s.registerManagementRoutes()
+		s.managementRoutesEnabled.Store(true)
+	} else if s.envManagementSecret {
 		s.registerManagementRoutes()
 		if s.managementRoutesEnabled.CompareAndSwap(false, true) {
 			log.Info("management routes enabled via MANAGEMENT_PASSWORD")

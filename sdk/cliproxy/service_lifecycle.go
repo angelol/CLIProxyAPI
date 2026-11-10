@@ -112,6 +112,7 @@ func (s *Service) Run(ctx context.Context) error {
 	}
 
 	// legacy clients removed; no caches to refresh
+	s.startQuotaRefresh(ctx)
 
 	s.ensureWebsocketGateway()
 	if homeEnabled {
@@ -231,6 +232,7 @@ func (s *Service) Shutdown(ctx context.Context) error {
 	}
 	var shutdownErr error
 	s.shutdownOnce.Do(func() {
+		s.stopQuotaRefresh()
 		if ctx == nil {
 			ctx = context.Background()
 		}

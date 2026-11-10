@@ -458,6 +458,9 @@ func BuildConfigChangeDetails(oldCfg, newCfg *config.Config) []string {
 	}
 
 	// Remote management (never print the key)
+	if oldCfg.RemoteManagement.AllowLocalWithoutKey != newCfg.RemoteManagement.AllowLocalWithoutKey {
+		changes = append(changes, fmt.Sprintf("remote-management.allow-local-without-key: %t -> %t", oldCfg.RemoteManagement.AllowLocalWithoutKey, newCfg.RemoteManagement.AllowLocalWithoutKey))
+	}
 	if oldCfg.RemoteManagement.AllowRemote != newCfg.RemoteManagement.AllowRemote {
 		changes = append(changes, fmt.Sprintf("remote-management.allow-remote: %t -> %t", oldCfg.RemoteManagement.AllowRemote, newCfg.RemoteManagement.AllowRemote))
 	}
