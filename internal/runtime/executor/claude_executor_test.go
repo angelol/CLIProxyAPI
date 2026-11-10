@@ -816,7 +816,7 @@ func TestClaudeExecutor_NonClaudeRequestUsesClaudeCode220CLIFingerprint(t *testi
 		t.Fatalf("Execute() error = %v", errExecute)
 	}
 
-	assertClaudeFingerprint(t, seenHeaders, "claude-cli/2.1.280 (external, cli)", "0.112.1", "v26.3.0", "MacOS", "arm64")
+	assertClaudeFingerprint(t, seenHeaders, "claude-cli/2.1.321 (external, cli)", "0.128.0", "v26.12.1", "MacOS", "arm64")
 	if got := seenHeaders.Get("X-App"); got != "cli" {
 		t.Fatalf("X-App = %q, want cli", got)
 	}
@@ -828,8 +828,8 @@ func TestClaudeExecutor_NonClaudeRequestUsesClaudeCode220CLIFingerprint(t *testi
 	if len(system) != 2 {
 		t.Fatalf("system block count = %d, want 2: %s", len(system), seenBody)
 	}
-	if got := system[0].Get("text").String(); got != "x-anthropic-billing-header: cc_version=2.1.280.d7b; cc_entrypoint=cli;" {
-		t.Fatalf("billing header = %q, want 2.1.280 CLI fingerprint", got)
+	if got := system[0].Get("text").String(); got != "x-anthropic-billing-header: cc_version=2.1.321.cf7; cc_entrypoint=cli;" {
+		t.Fatalf("billing header = %q, want 2.1.321 CLI fingerprint", got)
 	}
 	if got := system[1].Get("text").String(); got != claudeCodeCLIIdentity {
 		t.Fatalf("system[1].text = %q, want official CLI identity", got)
@@ -877,12 +877,12 @@ func TestClaudeExecutor_ConfirmedNewerPatchClaudeCodeRequestPreservesInteractive
 	const userID = `{"device_id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","account_uuid":"","session_id":"11111111-2222-4333-8444-555555555555"}`
 	payload := []byte(`{"model":"claude-opus-4-6","system":[{"type":"text","text":"interactive-system","cache_control":{"type":"ephemeral"}}],"messages":[{"role":"user","content":"x"}],"metadata":{"user_id":` + fmt.Sprintf("%q", userID) + `}}`)
 	incoming := http.Header{
-		"User-Agent":                  {"claude-cli/2.1.281 (external, cli)"},
+		"User-Agent":                  {"claude-cli/2.1.322 (external, cli)"},
 		"X-App":                       {"cli"},
 		"Anthropic-Beta":              {"claude-code-20250219,interleaved-thinking-2025-05-14,redact-thinking-2026-02-12,thinking-token-count-2026-05-13,context-management-2025-06-27,prompt-caching-scope-2026-01-05,effort-2025-11-24"},
 		"X-Claude-Code-Session-Id":    {sessionID},
-		"X-Stainless-Package-Version": {"0.112.1"},
-		"X-Stainless-Runtime-Version": {"v26.3.0"},
+		"X-Stainless-Package-Version": {"0.128.0"},
+		"X-Stainless-Runtime-Version": {"v26.12.1"},
 		"X-Stainless-Os":              {"MacOS"},
 		"X-Stainless-Arch":            {"arm64"},
 	}
@@ -904,7 +904,7 @@ func TestClaudeExecutor_ConfirmedNewerPatchClaudeCodeRequestPreservesInteractive
 		t.Fatalf("Execute() error = %v", errExecute)
 	}
 
-	assertClaudeFingerprint(t, seenHeaders, "claude-cli/2.1.281 (external, cli)", "0.112.1", "v26.3.0", "MacOS", "arm64")
+	assertClaudeFingerprint(t, seenHeaders, "claude-cli/2.1.322 (external, cli)", "0.128.0", "v26.12.1", "MacOS", "arm64")
 	if got := gjson.GetBytes(seenBody, "system.0.text").String(); got != "interactive-system" {
 		t.Fatalf("system.0.text = %q, want confirmed client system preserved", got)
 	}
@@ -947,7 +947,7 @@ func TestClaudeExecutor_ConfirmedClaudeCodeWithoutCacheControlPreservesContent(t
 			const userID = `{"device_id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","account_uuid":"","session_id":"11111111-2222-4333-8444-555555555555"}`
 			payload := []byte(`{"model":"claude-opus-4-6","messages":[{"role":"user","content":"x"}],"metadata":{"user_id":` + fmt.Sprintf("%q", userID) + `}}`)
 			incoming := http.Header{
-				"User-Agent":               {"claude-cli/2.1.280 (external, cli)"},
+				"User-Agent":               {"claude-cli/2.1.321 (external, cli)"},
 				"X-App":                    {"cli"},
 				"Anthropic-Beta":           {"claude-code-20250219"},
 				"X-Claude-Code-Session-Id": {sessionID},
@@ -1004,7 +1004,7 @@ func TestClaudeExecutor_ConfirmedVSCodeAgentSDKRequestPreservesIdentity(t *testi
 
 	const sessionID = "22222222-3333-4444-8555-666666666666"
 	const userID = `{"device_id":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","account_uuid":"","session_id":"22222222-3333-4444-8555-666666666666"}`
-	const vscodeUA = "claude-cli/2.1.280 (external, claude-vscode, agent-sdk/0.3.220)"
+	const vscodeUA = "claude-cli/2.1.321 (external, claude-vscode, agent-sdk/0.3.220)"
 	const billingHeader = "x-anthropic-billing-header: cc_version=2.1.258.9cb; cc_entrypoint=claude-vscode;"
 	payload := []byte(`{"model":"claude-opus-4-6","system":[{"type":"text","text":` + fmt.Sprintf("%q", billingHeader) + `},{"type":"text","text":"You are a Claude agent, built on Anthropic's Claude Agent SDK.","cache_control":{"type":"ephemeral","ttl":"1h"}},{"type":"text","text":"vscode-agent-system"}],"messages":[{"role":"user","content":"x"}],"metadata":{"user_id":` + fmt.Sprintf("%q", userID) + `}}`)
 	incoming := http.Header{
@@ -1013,8 +1013,8 @@ func TestClaudeExecutor_ConfirmedVSCodeAgentSDKRequestPreservesIdentity(t *testi
 		"Anthropic-Beta": {"claude-code-20250219,interleaved-thinking-2025-05-14"},
 		"Anthropic-Dangerous-Direct-Browser-Access": {"true"},
 		"X-Claude-Code-Session-Id":                  {sessionID},
-		"X-Stainless-Package-Version":               {"0.112.1"},
-		"X-Stainless-Runtime-Version":               {"v26.3.0"},
+		"X-Stainless-Package-Version":               {"0.128.0"},
+		"X-Stainless-Runtime-Version":               {"v26.12.1"},
 		"X-Stainless-Os":                            {"MacOS"},
 		"X-Stainless-Arch":                          {"arm64"},
 	}
@@ -1037,7 +1037,7 @@ func TestClaudeExecutor_ConfirmedVSCodeAgentSDKRequestPreservesIdentity(t *testi
 		t.Fatalf("Execute() error = %v", errExecute)
 	}
 
-	assertClaudeFingerprint(t, seenHeaders, vscodeUA, "0.112.1", "v26.3.0", "MacOS", "arm64")
+	assertClaudeFingerprint(t, seenHeaders, vscodeUA, "0.128.0", "v26.12.1", "MacOS", "arm64")
 	if got := seenHeaders.Get("Anthropic-Dangerous-Direct-Browser-Access"); got != "true" {
 		t.Fatalf("Anthropic-Dangerous-Direct-Browser-Access = %q, want preserved true", got)
 	}
@@ -1089,7 +1089,7 @@ func TestClaudeExecutor_CopiedVSCodeAgentSDKHeadersWithoutMetadataAreCloaked(t *
 		SourceFormat:    sdktranslator.FormatClaude,
 		OriginalRequest: payload,
 		Headers: http.Header{
-			"User-Agent":     {"claude-cli/2.1.280 (external, claude-vscode, agent-sdk/0.3.220)"},
+			"User-Agent":     {"claude-cli/2.1.321 (external, claude-vscode, agent-sdk/0.3.220)"},
 			"X-App":          {"cli"},
 			"Anthropic-Beta": {"claude-code-20250219"},
 		},
@@ -1098,7 +1098,7 @@ func TestClaudeExecutor_CopiedVSCodeAgentSDKHeadersWithoutMetadataAreCloaked(t *
 		t.Fatalf("Execute() error = %v", errExecute)
 	}
 
-	if got := seenHeaders.Get("User-Agent"); got != "claude-cli/2.1.280 (external, cli)" {
+	if got := seenHeaders.Get("User-Agent"); got != "claude-cli/2.1.321 (external, cli)" {
 		t.Fatalf("User-Agent = %q, want CLI cloak", got)
 	}
 	if got := gjson.GetBytes(seenBody, "system.#").Int(); got != 2 {
@@ -1138,7 +1138,7 @@ func TestClaudeExecutor_AgentSDKEntrypointWithStrongSignalsUsesCLICloak(t *testi
 		SourceFormat:    sdktranslator.FormatClaude,
 		OriginalRequest: payload,
 		Headers: http.Header{
-			"User-Agent":     {"claude-cli/2.1.280 (external, sdk-ts, agent-sdk/0.3.220)"},
+			"User-Agent":     {"claude-cli/2.1.321 (external, sdk-ts, agent-sdk/0.3.220)"},
 			"X-App":          {"cli"},
 			"Anthropic-Beta": {"claude-code-20250219"},
 		},
@@ -1147,7 +1147,7 @@ func TestClaudeExecutor_AgentSDKEntrypointWithStrongSignalsUsesCLICloak(t *testi
 		t.Fatalf("Execute() error = %v", errExecute)
 	}
 
-	if got := seenHeaders.Get("User-Agent"); got != "claude-cli/2.1.280 (external, cli)" {
+	if got := seenHeaders.Get("User-Agent"); got != "claude-cli/2.1.321 (external, cli)" {
 		t.Fatalf("User-Agent = %q, want CLI cloak", got)
 	}
 	if got := gjson.GetBytes(seenBody, "system.0.text").String(); !strings.Contains(got, "cc_entrypoint=cli;") {
@@ -1193,11 +1193,11 @@ func TestClaudeExecutor_ConfirmedVSCodeOAuthPreservesToolNames(t *testing.T) {
 		SourceFormat:    sdktranslator.FormatClaude,
 		OriginalRequest: payload,
 		Headers: http.Header{
-			"User-Agent":                  {"claude-cli/2.1.280 (external, claude-vscode, agent-sdk/0.3.220)"},
+			"User-Agent":                  {"claude-cli/2.1.321 (external, claude-vscode, agent-sdk/0.3.220)"},
 			"X-App":                       {"cli"},
 			"Anthropic-Beta":              {"claude-code-20250219"},
-			"X-Stainless-Package-Version": {"0.112.1"},
-			"X-Stainless-Runtime-Version": {"v26.3.0"},
+			"X-Stainless-Package-Version": {"0.128.0"},
+			"X-Stainless-Runtime-Version": {"v26.12.1"},
 		},
 	})
 	if errExecute != nil {
@@ -2403,7 +2403,7 @@ func TestClaudeExecutor_CountTokensUpstreamConfirmedVSCodePreservesCustomTool(t 
 	}, cliproxyexecutor.Options{
 		SourceFormat: sdktranslator.FormatClaude,
 		Headers: http.Header{
-			"User-Agent":     {"claude-cli/2.1.280 (external, claude-vscode, agent-sdk/0.3.220)"},
+			"User-Agent":     {"claude-cli/2.1.321 (external, claude-vscode, agent-sdk/0.3.220)"},
 			"X-App":          {"cli"},
 			"Anthropic-Beta": {"claude-code-20250219"},
 		},
@@ -2597,7 +2597,7 @@ func TestClaudeExecutor_CountTokensConfirmedNativePreservesMeasuredOAuthBody(t *
 	_, errCount := executor.countTokensUpstream(ctx, auth, cliproxyexecutor.Request{Model: "claude-opus-5", Payload: payload}, cliproxyexecutor.Options{
 		SourceFormat: sdktranslator.FormatClaude,
 		Headers: http.Header{
-			"User-Agent":     {"claude-cli/2.1.280 (external, cli)"},
+			"User-Agent":     {"claude-cli/2.1.321 (external, cli)"},
 			"X-App":          {"cli"},
 			"Anthropic-Beta": {incomingBetas},
 		},
@@ -4950,7 +4950,7 @@ func TestClaudeExecutor_RebuildMidSystemMessageDisabledByDefault(t *testing.T) {
 	}}
 	payload := []byte(`{"system":[{"type":"text","text":"Top rule","cache_control":{"type":"ephemeral"}}],"messages":[{"role":"user","content":[{"type":"text","text":"hi"}]},{"role":"system","content":"Mid rule"},{"role":"user","content":[{"type":"text","text":"continue"}]}],"metadata":{"user_id":"{\"device_id\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"account_uuid\":\"\",\"session_id\":\"11111111-2222-4333-8444-555555555555\"}"}}`)
 	ctx := contextWithGinHeaders(map[string]string{
-		"User-Agent":     "claude-cli/2.1.280 (external, cli)",
+		"User-Agent":     "claude-cli/2.1.321 (external, cli)",
 		"X-App":          "cli",
 		"Anthropic-Beta": "claude-code-20250219",
 	})
@@ -4996,7 +4996,7 @@ func TestClaudeExecutor_RebuildMidSystemMessageOptInMovesSystemMessages(t *testi
 	}}
 	payload := []byte(`{"system":"Top rule","messages":[{"role":"user","content":[{"type":"text","text":"hi"}]},{"role":"system","content":"Mid string rule"},{"role":"assistant","content":[{"type":"text","text":"ok"}]},{"role":"system","content":[{"type":"text","text":"Mid array rule","cache_control":{"type":"ephemeral"}}]},{"role":"user","content":[{"type":"text","text":"continue"}]}],"metadata":{"user_id":"{\"device_id\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"account_uuid\":\"\",\"session_id\":\"11111111-2222-4333-8444-555555555555\"}"}}`)
 	ctx := contextWithGinHeaders(map[string]string{
-		"User-Agent":     "claude-cli/2.1.280 (external, cli)",
+		"User-Agent":     "claude-cli/2.1.321 (external, cli)",
 		"X-App":          "cli",
 		"Anthropic-Beta": "claude-code-20250219",
 	})
@@ -5464,7 +5464,7 @@ func TestClaudeExecutor_SubagentAndProbeOmit1hCacheTTLAndBeta(t *testing.T) {
 	}, cliproxyexecutor.Options{
 		SourceFormat: sdktranslator.FormatClaude,
 		Headers: http.Header{
-			"User-Agent":             {"claude-cli/2.1.280 (external, cli)"},
+			"User-Agent":             {"claude-cli/2.1.321 (external, cli)"},
 			"X-Claude-Code-Agent-Id": {"subagent-confirmed-456"},
 			"Anthropic-Beta":         {"claude-code-20250219,oauth-2025-04-20,effort-2025-11-24"},
 		},
@@ -7696,7 +7696,7 @@ func TestClaudeExecutor_ExecuteOAuthCustomToolMCPAliasRoundTrip(t *testing.T) {
 	if _, ok := claudeBillingCCHDigitsOffset(upstreamBody); !ok {
 		t.Fatalf("Claude OAuth custom BaseURL body is missing CCH: %s", upstreamBody)
 	}
-	if got := upstreamHeaders.Get("User-Agent"); got != "claude-cli/2.1.280 (external, cli)" {
+	if got := upstreamHeaders.Get("User-Agent"); got != "claude-cli/2.1.321 (external, cli)" {
 		t.Fatalf("Messages User-Agent = %q, want CLI identity", got)
 	}
 	wantBetas := claudeCodeCLIBetas(payload, nil, true)
@@ -7773,7 +7773,7 @@ func TestClaudeExecutor_ExecuteStreamOAuthCustomToolMCPAliasRoundTrip(t *testing
 	if _, ok := claudeBillingCCHDigitsOffset(upstreamBody); !ok {
 		t.Fatalf("streaming Claude OAuth custom BaseURL body is missing CCH: %s", upstreamBody)
 	}
-	if got := upstreamHeaders.Get("User-Agent"); got != "claude-cli/2.1.280 (external, cli)" {
+	if got := upstreamHeaders.Get("User-Agent"); got != "claude-cli/2.1.321 (external, cli)" {
 		t.Fatalf("streaming User-Agent = %q, want CLI identity", got)
 	}
 	wantBetas := claudeCodeCLIBetas(payload, nil, true)
@@ -7912,7 +7912,7 @@ func TestInsertClaudeMidConversationSystemMessages_IsIdempotent(t *testing.T) {
 // baseline to Claude Code 2.1.220 behavior captured against api.anthropic.com.
 // The OAuth profile was reverified on 2026-08-03 with two distinct accounts.
 func TestClaudeCodeCLIBetas_MatchesObservedClientMatrix(t *testing.T) {
-	const constants = "claude-code-20250219,interleaved-thinking-2025-05-14,redact-thinking-2026-02-12,thinking-token-count-2026-05-13,context-management-2025-06-27,prompt-caching-scope-2026-01-05"
+	const constants = "claude-code-20250219,interleaved-thinking-2025-05-14,redact-thinking-2026-02-12,context-management-2025-06-27,prompt-caching-scope-2026-01-05"
 
 	tests := []struct {
 		name      string
@@ -7924,7 +7924,7 @@ func TestClaudeCodeCLIBetas_MatchesObservedClientMatrix(t *testing.T) {
 		{
 			name: "legacy model without tools omits both conditional betas",
 			body: `{"model":"claude-opus-4-6"}`,
-			want: constants + ",effort-2025-11-24",
+			want: constants + ",thinking-token-count-2026-05-13,effort-2025-11-24",
 		},
 		{
 			name:      "context 1m sits right after claude-code, not at the end",
@@ -7932,8 +7932,8 @@ func TestClaudeCodeCLIBetas_MatchesObservedClientMatrix(t *testing.T) {
 			requested: map[string]bool{claudeContext1MBeta: true},
 			want: "claude-code-20250219,context-1m-2025-08-07," +
 				"interleaved-thinking-2025-05-14,redact-thinking-2026-02-12," +
-				"thinking-token-count-2026-05-13,context-management-2025-06-27," +
-				"prompt-caching-scope-2026-01-05,effort-2025-11-24",
+				"context-management-2025-06-27,prompt-caching-scope-2026-01-05," +
+				"thinking-token-count-2026-05-13,effort-2025-11-24",
 		},
 		{
 			name: "opus-5 1m variant reproduces the full observed order",
@@ -7945,8 +7945,8 @@ func TestClaudeCodeCLIBetas_MatchesObservedClientMatrix(t *testing.T) {
 			},
 			want: "claude-code-20250219,context-1m-2025-08-07," +
 				"interleaved-thinking-2025-05-14,redact-thinking-2026-02-12," +
-				"thinking-token-count-2026-05-13,context-management-2025-06-27," +
-				"prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,mid-conversation-tool-changes-2026-07-01," +
+				"context-management-2025-06-27,prompt-caching-scope-2026-01-05," +
+				"mid-conversation-tool-changes-2026-07-01,thinking-token-count-2026-05-13," +
 				"advanced-tool-use-2025-11-20,effort-2025-11-24," +
 				"server-side-fallback-2026-06-01,fallback-credit-2026-06-01",
 		},
@@ -7954,38 +7954,52 @@ func TestClaudeCodeCLIBetas_MatchesObservedClientMatrix(t *testing.T) {
 			name:      "structured outputs trails effort",
 			body:      `{"model":"claude-opus-4-6"}`,
 			requested: map[string]bool{claudeStructuredOutputsBeta: true},
-			want:      constants + ",effort-2025-11-24,structured-outputs-2025-12-15",
+			want:      constants + ",thinking-token-count-2026-05-13,effort-2025-11-24,structured-outputs-2025-12-15",
 		},
 		{
 			name:      "unknown caller beta is not smuggled into the baseline",
 			body:      `{"model":"claude-opus-4-6"}`,
 			requested: map[string]bool{"totally-made-up-2030-01-01": true},
-			want:      constants + ",effort-2025-11-24",
+			want:      constants + ",thinking-token-count-2026-05-13,effort-2025-11-24",
 		},
 		{
 			name: "claude-sonnet-5 accepts role=system",
 			body: `{"model":"claude-sonnet-5"}`,
-			want: constants + ",mid-conversation-system-2026-04-07,mid-conversation-tool-changes-2026-07-01,effort-2025-11-24",
+			want: constants + ",thinking-token-count-2026-05-13,mid-conversation-system-clear-at-2026-08-21,effort-2025-11-24",
+		},
+		{
+			name: "claude-sonnet-5-5 carries tool changes beta unlike sonnet-5",
+			body: `{"model":"claude-sonnet-5-5"}`,
+			want: constants + ",per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,thinking-token-count-2026-05-13," +
+				"mid-conversation-system-clear-at-2026-08-21,effort-2025-11-24",
 		},
 		{
 			name: "claude-opus-4-8 accepts role=system",
 			body: `{"model":"claude-opus-4-8"}`,
-			want: constants + ",mid-conversation-system-2026-04-07,mid-conversation-tool-changes-2026-07-01,effort-2025-11-24",
+			want: constants + ",mid-conversation-tool-changes-2026-07-01,thinking-token-count-2026-05-13,effort-2025-11-24",
 		},
 		{
 			name: "claude-fable-5 accepts role=system",
 			body: `{"model":"claude-fable-5"}`,
-			want: constants + ",mid-conversation-system-2026-04-07,mid-conversation-tool-changes-2026-07-01,effort-2025-11-24",
+			want: constants + ",mid-conversation-tool-changes-2026-07-01,thinking-token-count-2026-05-13,effort-2025-11-24",
 		},
 		{
-			name: "opus-5-5 carries per-turn-control between mid-conversation betas",
+			name: "opus-5-5 carries capability betas without optional body fields",
+			body: `{"model":"claude-opus-5-5","thinking":{"type":"adaptive"}}`,
+			want: constants + ",per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,thinking-token-count-2026-05-13," +
+				"mid-conversation-system-clear-at-2026-08-21,effort-2025-11-24,thinking-binding-controls-2026-08-01",
+		},
+		{
+			name: "opus-5-5 without thinking still carries clear-at capability",
 			body: `{"model":"claude-opus-5-5"}`,
-			want: constants + ",mid-conversation-system-2026-04-07,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,effort-2025-11-24",
+			want: constants + ",per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,thinking-token-count-2026-05-13," +
+				"mid-conversation-system-clear-at-2026-08-21,effort-2025-11-24",
 		},
 		{
 			name: "fable-5-1 carries per-turn-control but not timing unless the body asks",
 			body: `{"model":"claude-fable-5-1"}`,
-			want: constants + ",mid-conversation-system-2026-04-07,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,effort-2025-11-24",
+			want: constants + ",per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,thinking-token-count-2026-05-13," +
+				"mid-conversation-system-clear-at-2026-08-21,effort-2025-11-24",
 		},
 		{
 			name: "opus-5-5 timing and the other 2.1.280 gated betas keep wire order",
@@ -7993,15 +8007,15 @@ func TestClaudeCodeCLIBetas_MatchesObservedClientMatrix(t *testing.T) {
 			requested: map[string]bool{
 				claudeThinkingResumptionBeta: true,
 			},
-			want: constants + ",mid-conversation-system-2026-04-07,per-turn-control-2026-07-01,timing-2026-09-09," +
-				"mid-conversation-tool-changes-2026-07-01,inline-tools-2026-09-15," +
-				"mid-conversation-system-clear-at-2026-08-21,dangerous-tool-use-2026-09-03,effort-2025-11-24," +
-				"thinking-binding-controls-2026-08-01,thinking-resumption-2026-07-17,prompt-caching-evict-2026-05-12",
+			want: constants + ",per-turn-control-2026-07-01,timing-2026-09-09,mid-conversation-tool-changes-2026-07-01," +
+				"inline-tools-2026-09-15,thinking-token-count-2026-05-13,mid-conversation-system-clear-at-2026-08-21," +
+				"effort-2025-11-24,dangerous-tool-use-2026-09-03,thinking-binding-controls-2026-08-01," +
+				"thinking-resumption-2026-07-17,prompt-caching-evict-2026-05-12",
 		},
 		{
 			name: "claude-opus-4-7 stays on the reminder path",
 			body: `{"model":"claude-opus-4-7"}`,
-			want: constants + ",effort-2025-11-24",
+			want: constants + ",thinking-token-count-2026-05-13,effort-2025-11-24",
 		},
 		{
 			name:  "oauth uses tool search and the current cache TTL trailer",
@@ -8009,8 +8023,8 @@ func TestClaudeCodeCLIBetas_MatchesObservedClientMatrix(t *testing.T) {
 			oauth: true,
 			want: "claude-code-20250219,oauth-2025-04-20," +
 				"interleaved-thinking-2025-05-14,redact-thinking-2026-02-12," +
-				"thinking-token-count-2026-05-13,context-management-2025-06-27," +
-				"prompt-caching-scope-2026-01-05,advanced-tool-use-2025-11-20," +
+				"context-management-2025-06-27,prompt-caching-scope-2026-01-05," +
+				"thinking-token-count-2026-05-13,advanced-tool-use-2025-11-20," +
 				"effort-2025-11-24,extended-cache-ttl-2025-04-11",
 		},
 		{
@@ -8022,110 +8036,111 @@ func TestClaudeCodeCLIBetas_MatchesObservedClientMatrix(t *testing.T) {
 				claudeServerSideFallbackBeta: true,
 				claudeFallbackCreditBeta:     true,
 			},
-			want: "claude-code-20250219,oauth-2025-04-20,context-1m-2025-08-07," +
-				"interleaved-thinking-2025-05-14,redact-thinking-2026-02-12," +
-				"thinking-token-count-2026-05-13,context-management-2025-06-27," +
-				"prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,mid-conversation-tool-changes-2026-07-01," +
-				"advanced-tool-use-2025-11-20,effort-2025-11-24," +
-				"server-side-fallback-2026-06-01,fallback-credit-2026-06-01," +
-				"extended-cache-ttl-2025-04-11",
+			want: "claude-code-20250219,oauth-2025-04-20," +
+				"context-1m-2025-08-07,interleaved-thinking-2025-05-14," +
+				"redact-thinking-2026-02-12,context-management-2025-06-27," +
+				"prompt-caching-scope-2026-01-05,mid-conversation-tool-changes-2026-07-01," +
+				"thinking-token-count-2026-05-13,advanced-tool-use-2025-11-20," +
+				"effort-2025-11-24,server-side-fallback-2026-06-01," +
+				"fallback-credit-2026-06-01,extended-cache-ttl-2025-04-11",
 		},
 		{
 			name: "api key path sends neither oauth beta",
 			body: `{"model":"claude-opus-4-6"}`,
-			want: constants + ",effort-2025-11-24",
+			want: constants + ",thinking-token-count-2026-05-13,effort-2025-11-24",
 		},
 		{
 			name: "claude-haiku-4-5-20251001 stays on the reminder path and omits effort",
 			body: `{"model":"claude-haiku-4-5-20251001"}`,
-			want: constants,
+			want: constants + ",thinking-token-count-2026-05-13",
 		},
 		{
 			name: "legacy model with inline tools no longer adds advanced tool use",
 			body: `{"model":"claude-sonnet-4-6","tools":[{"name":"Read"}]}`,
-			want: constants + ",effort-2025-11-24",
+			want: constants + ",thinking-token-count-2026-05-13,effort-2025-11-24",
 		},
 		{
 			name: "deferred tool adds advanced tool use",
 			body: `{"model":"claude-sonnet-4-6","tools":[{"name":"Read","defer_loading":true}]}`,
-			want: constants + ",advanced-tool-use-2025-11-20,effort-2025-11-24",
+			want: constants + ",thinking-token-count-2026-05-13,advanced-tool-use-2025-11-20,effort-2025-11-24",
 		},
 		{
 			name: "tool search server tool adds advanced tool use",
 			body: `{"model":"claude-sonnet-4-6","tools":[{"type":"tool_search_tool_regex_20251119","name":"tool_search_tool_regex"},{"name":"Read"}]}`,
-			want: constants + ",advanced-tool-use-2025-11-20,effort-2025-11-24",
+			want: constants + ",thinking-token-count-2026-05-13,advanced-tool-use-2025-11-20,effort-2025-11-24",
 		},
 		{
 			name: "tool use examples add advanced tool use",
 			body: `{"model":"claude-sonnet-4-6","tools":[{"name":"Read","input_examples":[{"path":"a.go"}]}]}`,
-			want: constants + ",advanced-tool-use-2025-11-20,effort-2025-11-24",
+			want: constants + ",thinking-token-count-2026-05-13,advanced-tool-use-2025-11-20,effort-2025-11-24",
 		},
 		{
 			name: "programmatic tool calling adds advanced tool use",
 			body: `{"model":"claude-sonnet-4-6","tools":[{"name":"Read","allowed_callers":["code_execution_20250825"]}]}`,
-			want: constants + ",advanced-tool-use-2025-11-20,effort-2025-11-24",
+			want: constants + ",thinking-token-count-2026-05-13,advanced-tool-use-2025-11-20,effort-2025-11-24",
 		},
 		{
 			name:      "requested advanced tool use is honored for inline tools",
 			body:      `{"model":"claude-sonnet-4-6","tools":[{"name":"Read"}]}`,
 			requested: map[string]bool{claudeAdvancedToolUseBeta: true},
-			want:      constants + ",advanced-tool-use-2025-11-20,effort-2025-11-24",
+			want:      constants + ",thinking-token-count-2026-05-13,advanced-tool-use-2025-11-20,effort-2025-11-24",
 		},
 		{
 			name: "role=system model without tools adds mid conversation system only",
 			body: `{"model":"claude-opus-5"}`,
-			want: constants + ",mid-conversation-system-2026-04-07,mid-conversation-tool-changes-2026-07-01,effort-2025-11-24",
+			want: constants + ",mid-conversation-tool-changes-2026-07-01,thinking-token-count-2026-05-13,effort-2025-11-24",
 		},
 		{
 			name: "role=system model with tool search adds both in wire order",
 			body: `{"model":"claude-opus-5","tools":[{"name":"Read","defer_loading":true}]}`,
-			want: constants + ",mid-conversation-system-2026-04-07,mid-conversation-tool-changes-2026-07-01,advanced-tool-use-2025-11-20,effort-2025-11-24",
+			want: constants + ",mid-conversation-tool-changes-2026-07-01,thinking-token-count-2026-05-13,advanced-tool-use-2025-11-20,effort-2025-11-24",
 		},
 		{
 			name: "empty tools array does not add advanced tool use",
 			body: `{"model":"claude-opus-4-6","tools":[]}`,
-			want: constants + ",effort-2025-11-24",
+			want: constants + ",thinking-token-count-2026-05-13,effort-2025-11-24",
 		},
 		{
 			name: "unknown future model keeps the optimistic role=system default",
 			body: `{"model":"claude-future-9"}`,
-			want: constants + ",mid-conversation-system-2026-04-07,mid-conversation-tool-changes-2026-07-01,effort-2025-11-24",
+			want: constants + ",mid-conversation-tool-changes-2026-07-01,thinking-token-count-2026-05-13,effort-2025-11-24",
 		},
 		{
 			name: "thinking display summarized drops redact-thinking",
 			body: `{"model":"claude-opus-5","thinking":{"type":"adaptive","display":"summarized"}}`,
 			want: "claude-code-20250219,interleaved-thinking-2025-05-14," +
-				"thinking-token-count-2026-05-13,context-management-2025-06-27," +
-				"prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,mid-conversation-tool-changes-2026-07-01," +
+				"context-management-2025-06-27,prompt-caching-scope-2026-01-05," +
+				"mid-conversation-tool-changes-2026-07-01,thinking-token-count-2026-05-13," +
 				"effort-2025-11-24",
 		},
 		{
 			name: "thinking display omitted drops redact-thinking as well",
 			body: `{"model":"claude-opus-4-6","thinking":{"type":"enabled","budget_tokens":2048,"display":"omitted"}}`,
 			want: "claude-code-20250219,interleaved-thinking-2025-05-14," +
-				"thinking-token-count-2026-05-13,context-management-2025-06-27," +
-				"prompt-caching-scope-2026-01-05,effort-2025-11-24",
+				"context-management-2025-06-27,prompt-caching-scope-2026-01-05," +
+				"thinking-token-count-2026-05-13,effort-2025-11-24",
 		},
 		{
 			name: "thinking without display keeps redact-thinking",
 			body: `{"model":"claude-opus-4-6","thinking":{"type":"adaptive"}}`,
-			want: constants + ",effort-2025-11-24",
+			want: constants + ",thinking-token-count-2026-05-13,effort-2025-11-24",
 		},
 		{
 			name: "blank display value keeps redact-thinking",
 			body: `{"model":"claude-opus-4-6","thinking":{"type":"adaptive","display":"  "}}`,
-			want: constants + ",effort-2025-11-24",
+			want: constants + ",thinking-token-count-2026-05-13,effort-2025-11-24",
 		},
 		{
 			name:      "advisor tool beta requested placed before advanced-tool-use",
 			body:      `{"model":"claude-opus-5","tools":[{"name":"Read","defer_loading":true}]}`,
 			requested: map[string]bool{"advisor-tool-2026-03-01": true},
-			want:      constants + ",mid-conversation-system-2026-04-07,mid-conversation-tool-changes-2026-07-01,advisor-tool-2026-03-01,advanced-tool-use-2025-11-20,effort-2025-11-24",
+			want: constants + ",mid-conversation-tool-changes-2026-07-01,advisor-tool-2026-03-01,thinking-token-count-2026-05-13," +
+				"advanced-tool-use-2025-11-20,effort-2025-11-24",
 		},
 		{
 			name: "body with advisor server tool automatically adds advisor-tool beta",
 			body: `{"model":"claude-opus-5","tools":[{"type":"advisor_20260301","name":"advisor"}]}`,
-			want: constants + ",mid-conversation-system-2026-04-07,mid-conversation-tool-changes-2026-07-01,advisor-tool-2026-03-01,effort-2025-11-24",
+			want: constants + ",mid-conversation-tool-changes-2026-07-01,advisor-tool-2026-03-01,thinking-token-count-2026-05-13,effort-2025-11-24",
 		},
 		{
 			// Captured 2026-09-02 from Claude Code 2.1.258 (cli entrypoint, OAuth,
@@ -8140,10 +8155,12 @@ func TestClaudeCodeCLIBetas_MatchesObservedClientMatrix(t *testing.T) {
 			},
 			want: "claude-code-20250219,oauth-2025-04-20," +
 				"interleaved-thinking-2025-05-14,redact-thinking-2026-02-12," +
-				"thinking-token-count-2026-05-13,context-management-2025-06-27," +
-				"prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01," +
-				"advisor-tool-2026-03-01,effort-2025-11-24," +
-				"afk-mode-2026-01-31,extended-cache-ttl-2025-04-11",
+				"context-management-2025-06-27,prompt-caching-scope-2026-01-05," +
+				"per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01," +
+				"advisor-tool-2026-03-01,thinking-token-count-2026-05-13," +
+				"mid-conversation-system-clear-at-2026-08-21,effort-2025-11-24," +
+				"thinking-binding-controls-2026-08-01,afk-mode-2026-01-31," +
+				"extended-cache-ttl-2025-04-11",
 		},
 		{
 			name:      "afk-mode sits between fast-mode and extended-cache-ttl",
@@ -8152,8 +8169,8 @@ func TestClaudeCodeCLIBetas_MatchesObservedClientMatrix(t *testing.T) {
 			requested: map[string]bool{claudeAFKModeBeta: true},
 			want: "claude-code-20250219,oauth-2025-04-20," +
 				"interleaved-thinking-2025-05-14,redact-thinking-2026-02-12," +
-				"thinking-token-count-2026-05-13,context-management-2025-06-27," +
-				"prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,mid-conversation-tool-changes-2026-07-01," +
+				"context-management-2025-06-27,prompt-caching-scope-2026-01-05," +
+				"mid-conversation-tool-changes-2026-07-01,thinking-token-count-2026-05-13," +
 				"effort-2025-11-24,fast-mode-2026-02-01," +
 				"afk-mode-2026-01-31,extended-cache-ttl-2025-04-11",
 		},
@@ -8163,22 +8180,25 @@ func TestClaudeCodeCLIBetas_MatchesObservedClientMatrix(t *testing.T) {
 			oauth: true,
 			want: "claude-code-20250219,oauth-2025-04-20," +
 				"interleaved-thinking-2025-05-14,redact-thinking-2026-02-12," +
-				"thinking-token-count-2026-05-13,context-management-2025-06-27," +
-				"prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,mid-conversation-tool-changes-2026-07-01," +
+				"context-management-2025-06-27,prompt-caching-scope-2026-01-05," +
+				"mid-conversation-tool-changes-2026-07-01,thinking-token-count-2026-05-13," +
 				"effort-2025-11-24,extended-cache-ttl-2025-04-11",
 		},
 		{
 			name: "thinking display updates emits thinking-display-updates beta and drops redact-thinking",
 			body: `{"model":"claude-fable-5-1","thinking":{"type":"adaptive","display":"updates"}}`,
 			want: "claude-code-20250219,interleaved-thinking-2025-05-14," +
-				"thinking-token-count-2026-05-13,context-management-2025-06-27," +
-				"prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01," +
-				"effort-2025-11-24,thinking-display-updates-2026-08-18",
+				"context-management-2025-06-27,prompt-caching-scope-2026-01-05," +
+				"per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01," +
+				"thinking-token-count-2026-05-13,mid-conversation-system-clear-at-2026-08-21," +
+				"effort-2025-11-24,thinking-binding-controls-2026-08-01," +
+				"thinking-display-updates-2026-08-18",
 		},
 		{
 			name: "body with fallbacks automatically adds server-side-fallback beta",
 			body: `{"model":"claude-fable-5-1","fallbacks":[{"model":"claude-opus-5"}]}`,
-			want: constants + ",mid-conversation-system-2026-04-07,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,effort-2025-11-24,server-side-fallback-2026-06-01",
+			want: constants + ",per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01,thinking-token-count-2026-05-13," +
+				"mid-conversation-system-clear-at-2026-08-21,effort-2025-11-24,server-side-fallback-2026-06-01",
 		},
 		{
 			name:  "subagent request omits extended-cache-ttl beta",
@@ -8186,18 +8206,17 @@ func TestClaudeCodeCLIBetas_MatchesObservedClientMatrix(t *testing.T) {
 			oauth: true,
 			want: "claude-code-20250219,oauth-2025-04-20," +
 				"interleaved-thinking-2025-05-14,redact-thinking-2026-02-12," +
-				"thinking-token-count-2026-05-13,context-management-2025-06-27," +
-				"prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,mid-conversation-tool-changes-2026-07-01," +
+				"context-management-2025-06-27,prompt-caching-scope-2026-01-05," +
+				"thinking-token-count-2026-05-13,mid-conversation-system-clear-at-2026-08-21," +
 				"effort-2025-11-24",
 		},
 		{
 			name:  "probe request max_tokens=1 omits effort and extended-cache-ttl betas",
 			body:  `{"model":"claude-sonnet-5","max_tokens":1}`,
 			oauth: true,
-			want: "claude-code-20250219,oauth-2025-04-20," +
-				"interleaved-thinking-2025-05-14,redact-thinking-2026-02-12," +
-				"thinking-token-count-2026-05-13,context-management-2025-06-27," +
-				"prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,mid-conversation-tool-changes-2026-07-01",
+			want: "oauth-2025-04-20,interleaved-thinking-2025-05-14," +
+				"redact-thinking-2026-02-12,context-management-2025-06-27," +
+				"prompt-caching-scope-2026-01-05,mid-conversation-system-clear-at-2026-08-21",
 		},
 		{
 			name:      "haiku model omits effort beta even if requested",
@@ -8206,9 +8225,8 @@ func TestClaudeCodeCLIBetas_MatchesObservedClientMatrix(t *testing.T) {
 			oauth:     true,
 			want: "claude-code-20250219,oauth-2025-04-20," +
 				"interleaved-thinking-2025-05-14,redact-thinking-2026-02-12," +
-				"thinking-token-count-2026-05-13,context-management-2025-06-27," +
-				"prompt-caching-scope-2026-01-05," +
-				"extended-cache-ttl-2025-04-11",
+				"context-management-2025-06-27,prompt-caching-scope-2026-01-05," +
+				"thinking-token-count-2026-05-13,extended-cache-ttl-2025-04-11",
 		},
 		{
 			name:      "disabled thinking omits effort beta even if requested",
@@ -8217,8 +8235,8 @@ func TestClaudeCodeCLIBetas_MatchesObservedClientMatrix(t *testing.T) {
 			oauth:     true,
 			want: "claude-code-20250219,oauth-2025-04-20," +
 				"interleaved-thinking-2025-05-14,redact-thinking-2026-02-12," +
-				"thinking-token-count-2026-05-13,context-management-2025-06-27," +
-				"prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,mid-conversation-tool-changes-2026-07-01," +
+				"context-management-2025-06-27,prompt-caching-scope-2026-01-05," +
+				"thinking-token-count-2026-05-13,mid-conversation-system-clear-at-2026-08-21," +
 				"extended-cache-ttl-2025-04-11",
 		},
 		{
@@ -8227,9 +8245,10 @@ func TestClaudeCodeCLIBetas_MatchesObservedClientMatrix(t *testing.T) {
 			oauth: true,
 			want: "claude-code-20250219,oauth-2025-04-20," +
 				"interleaved-thinking-2025-05-14,redact-thinking-2026-02-12," +
-				"thinking-token-count-2026-05-13,context-management-2025-06-27," +
-				"prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,mid-conversation-tool-changes-2026-07-01," +
-				"effort-2025-11-24,fallback-credit-2026-06-01,extended-cache-ttl-2025-04-11",
+				"context-management-2025-06-27,prompt-caching-scope-2026-01-05," +
+				"thinking-token-count-2026-05-13,mid-conversation-system-clear-at-2026-08-21," +
+				"effort-2025-11-24,fallback-credit-2026-06-01," +
+				"extended-cache-ttl-2025-04-11",
 		},
 		{
 			name:  "oauth body with fallbacks automatically adds fallback-credit beta",
@@ -8237,10 +8256,11 @@ func TestClaudeCodeCLIBetas_MatchesObservedClientMatrix(t *testing.T) {
 			oauth: true,
 			want: "claude-code-20250219,oauth-2025-04-20," +
 				"interleaved-thinking-2025-05-14,redact-thinking-2026-02-12," +
-				"thinking-token-count-2026-05-13,context-management-2025-06-27," +
-				"prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01," +
-				"effort-2025-11-24,server-side-fallback-2026-06-01,fallback-credit-2026-06-01," +
-				"extended-cache-ttl-2025-04-11",
+				"context-management-2025-06-27,prompt-caching-scope-2026-01-05," +
+				"per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01," +
+				"thinking-token-count-2026-05-13,mid-conversation-system-clear-at-2026-08-21," +
+				"effort-2025-11-24,server-side-fallback-2026-06-01," +
+				"fallback-credit-2026-06-01,extended-cache-ttl-2025-04-11",
 		},
 		{
 			name:      "requested fallback-credit beta is honored",
@@ -8249,9 +8269,10 @@ func TestClaudeCodeCLIBetas_MatchesObservedClientMatrix(t *testing.T) {
 			oauth:     true,
 			want: "claude-code-20250219,oauth-2025-04-20," +
 				"interleaved-thinking-2025-05-14,redact-thinking-2026-02-12," +
-				"thinking-token-count-2026-05-13,context-management-2025-06-27," +
-				"prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,mid-conversation-tool-changes-2026-07-01," +
-				"effort-2025-11-24,fallback-credit-2026-06-01,extended-cache-ttl-2025-04-11",
+				"context-management-2025-06-27,prompt-caching-scope-2026-01-05," +
+				"thinking-token-count-2026-05-13,mid-conversation-system-clear-at-2026-08-21," +
+				"effort-2025-11-24,fallback-credit-2026-06-01," +
+				"extended-cache-ttl-2025-04-11",
 		},
 	}
 
@@ -9458,5 +9479,260 @@ func TestClaudeExecutor_CloakModePrefersStoredPrevReqOverCallerFake(t *testing.T
 	}
 	if strings.Contains(turn2System, "req_fake_caller_999") {
 		t.Fatalf("CPA must not use fake caller cc_prev_req, got: %s", turn2System)
+	}
+}
+
+const preservedThinkingTestSignature = "CAISqwIKiAEIEBgCKkBHRlRBsNiptQUWfPoOhuQKwi5LnncZVO9bB5jqOs76D7uBtgktML0zqJtNmLHXHHcgD6lk4MQu4QBXzFd1lbC3Mg5jbGF1ZGUtZmFibGUtNTgBQgh0aGlua2luZ1okZDk3NDM5NzUtNGJiMC00OTM2LTllMjgtZDViMGQyMWJkYzQ4EgxCGh+XVFFFeySAjtAaDL/A1LltGu6MMJ+eXSIwsN0oBpDrqLv22UBfkMnTotnIbkvkOyb9xZHgigG6OZVHaI3gThm+maLKmgO5PrFLKlDFYp+YZksy/wKwszJlnLTPzAK+NUlfzagOE1ymtZTXhAYK260XyFYmg/te/C231+Fr/hoX+EJoUBnrn0gD7hqMISOT+TaFEuOXYsN517GfaxgB"
+
+func preservedThinkingReplayPayload(model string) []byte {
+	return []byte(`{
+		"model": "` + model + `",
+		"thinking": {"type": "adaptive"},
+		"messages": [
+			{"role":"user","content":[{"type":"text","text":"hi"}]},
+			{"role":"assistant","content":[
+				{"type":"thinking","thinking":"earlier reasoning","signature":"` + preservedThinkingTestSignature + `"},
+				{"type":"text","text":"Answer"}
+			]},
+			{"role":"user","content":[{"type":"text","text":"continue"}]}
+		]
+	}`)
+}
+
+func runClaudeExecutorCapture(t *testing.T, cfg *config.Config, cloakMode string, stream bool, model string, payload []byte) ([]byte, http.Header) {
+	t.Helper()
+	var seenBody []byte
+	var seenHeaders http.Header
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		seenBody = bytes.Clone(body)
+		seenHeaders = r.Header.Clone()
+		if stream {
+			w.Header().Set("Content-Type", "text/event-stream")
+			_, _ = w.Write([]byte("data: {\"type\":\"message_stop\"}\n\n"))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"msg_1","type":"message","model":"ok","role":"assistant","content":[{"type":"text","text":"ok"}],"usage":{"input_tokens":1,"output_tokens":1}}`))
+	}))
+	defer server.Close()
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
+	attrs := map[string]string{"api_key": "key-preserved-thinking", "base_url": server.URL, "cloak_mode": "always"}
+	if cloakMode != "" {
+		attrs["cloak_mode"] = cloakMode
+	}
+	executor := NewClaudeExecutor(cfg)
+	auth := &cliproxyauth.Auth{Attributes: attrs}
+	req := cliproxyexecutor.Request{Model: model, Payload: payload}
+	opts := cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatClaude}
+	if stream {
+		result, errStream := executor.ExecuteStream(context.Background(), auth, req, opts)
+		if errStream != nil {
+			t.Fatalf("ExecuteStream() error = %v", errStream)
+		}
+		for chunk := range result.Chunks {
+			if chunk.Err != nil {
+				t.Fatalf("unexpected stream chunk error: %v", chunk.Err)
+			}
+		}
+	} else {
+		if _, errExecute := executor.Execute(context.Background(), auth, req, opts); errExecute != nil {
+			t.Fatalf("Execute() error = %v", errExecute)
+		}
+	}
+	if len(seenBody) == 0 {
+		t.Fatal("expected request body to be captured")
+	}
+	return seenBody, seenHeaders
+}
+
+func TestClaudeExecutor_PreservedThinkingReplayInjectsDropBlock(t *testing.T) {
+	for _, model := range []string{"claude-haiku-5-5", "claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5-1", "claude-fable-5-2", "claude-fable-5-2[1m]"} {
+		t.Run(model, func(t *testing.T) {
+			seenBody, seenHeaders := runClaudeExecutorCapture(t, nil, "", false, model, preservedThinkingReplayPayload(model))
+			if got := gjson.GetBytes(seenBody, "thinking.block_binding.prefix_mismatch_behavior").String(); got != "drop_block" {
+				t.Fatalf("thinking.block_binding.prefix_mismatch_behavior = %q, want drop_block; body=%s", got, seenBody)
+			}
+			if betas := seenHeaders.Get("Anthropic-Beta"); !strings.Contains(betas, claudeThinkingBindingBeta) {
+				t.Fatalf("Anthropic-Beta = %q, want %s", betas, claudeThinkingBindingBeta)
+			}
+			if !strings.Contains(string(seenBody), preservedThinkingTestSignature) {
+				t.Fatalf("replayed thinking signature must survive injection: %s", seenBody)
+			}
+		})
+	}
+}
+
+func TestClaudeExecutor_PreservedThinkingReplayInjectsDropBlockOnStream(t *testing.T) {
+	seenBody, seenHeaders := runClaudeExecutorCapture(t, nil, "", true, "claude-fable-5-2", preservedThinkingReplayPayload("claude-fable-5-2"))
+	if got := gjson.GetBytes(seenBody, "thinking.block_binding.prefix_mismatch_behavior").String(); got != "drop_block" {
+		t.Fatalf("stream thinking.block_binding.prefix_mismatch_behavior = %q, want drop_block; body=%s", got, seenBody)
+	}
+	if betas := seenHeaders.Get("Anthropic-Beta"); !strings.Contains(betas, claudeThinkingBindingBeta) {
+		t.Fatalf("stream Anthropic-Beta = %q, want %s", betas, claudeThinkingBindingBeta)
+	}
+}
+
+func TestClaudeExecutor_PreservedThinkingInjectionSkipsNonPreservedModel(t *testing.T) {
+	seenBody, _ := runClaudeExecutorCapture(t, nil, "", false, "claude-opus-5", preservedThinkingReplayPayload("claude-opus-5"))
+	if gjson.GetBytes(seenBody, "thinking.block_binding").Exists() {
+		t.Fatalf("non-preserved-thinking model must not gain block_binding: %s", seenBody)
+	}
+}
+
+func TestClaudeExecutor_PreservedThinkingRequiresSignedBlock(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		payload string
+	}{
+		{
+			name:    "explicit adaptive thinking",
+			payload: `{"model":"claude-haiku-5-5","thinking":{"type":"adaptive"},"messages":[{"role":"user","content":"hi"}]}`,
+		},
+		{
+			name:    "omitted thinking",
+			payload: `{"model":"claude-haiku-5-5","messages":[{"role":"user","content":"hi"}]}`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			seenBody, _ := runClaudeExecutorCapture(t, nil, "", false, "claude-haiku-5-5", []byte(tc.payload))
+			if gjson.GetBytes(seenBody, "thinking.block_binding").Exists() {
+				t.Fatalf("request without replayed signed thinking must not gain block_binding: %s", seenBody)
+			}
+		})
+	}
+}
+
+func TestClaudeExecutor_PreservedThinkingOmittedThinkingSynthesizesAdaptiveBinding(t *testing.T) {
+	for _, model := range []string{"claude-haiku-5-5", "claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5-1", "claude-fable-5-2"} {
+		for _, tc := range []struct {
+			name  string
+			block string
+		}{
+			{
+				name:  "signed_thinking",
+				block: `{"type":"thinking","thinking":"earlier","signature":"` + preservedThinkingTestSignature + `"}`,
+			},
+			{
+				name:  "redacted_thinking",
+				block: `{"type":"redacted_thinking","data":"redacted-payload"}`,
+			},
+		} {
+			t.Run(model+"_"+tc.name, func(t *testing.T) {
+				payload := []byte(`{"model":"` + model + `","messages":[{"role":"user","content":"hi"},{"role":"assistant","content":[` + tc.block + `,{"type":"text","text":"Answer"}]},{"role":"user","content":"continue"}]}`)
+				seenBody, seenHeaders := runClaudeExecutorCapture(t, nil, "", false, model, payload)
+				if got := gjson.GetBytes(seenBody, "thinking.type").String(); got != "adaptive" {
+					t.Fatalf("thinking.type = %q, want adaptive; body=%s", got, seenBody)
+				}
+				if got := gjson.GetBytes(seenBody, "thinking.block_binding.prefix_mismatch_behavior").String(); got != "drop_block" {
+					t.Fatalf("thinking.block_binding.prefix_mismatch_behavior = %q, want drop_block; body=%s", got, seenBody)
+				}
+				if betas := seenHeaders.Get("Anthropic-Beta"); !strings.Contains(betas, claudeThinkingBindingBeta) {
+					t.Fatalf("Anthropic-Beta = %q, want %s", betas, claudeThinkingBindingBeta)
+				}
+			})
+		}
+	}
+}
+
+func TestClaudeExecutor_PreservedThinkingTypelessThinkingObjectUntouched(t *testing.T) {
+	payload := []byte(`{"model":"claude-haiku-5-5","thinking":{},"messages":[{"role":"user","content":"hi"},{"role":"assistant","content":[{"type":"thinking","thinking":"earlier","signature":"` + preservedThinkingTestSignature + `"}]},{"role":"user","content":"continue"}]}`)
+	seenBody, _ := runClaudeExecutorCapture(t, nil, "", false, "claude-haiku-5-5", payload)
+	if gjson.GetBytes(seenBody, "thinking.type").Exists() || gjson.GetBytes(seenBody, "thinking.block_binding").Exists() {
+		t.Fatalf("thinking object without type must stay untouched: %s", seenBody)
+	}
+}
+
+func TestClaudeExecutor_PreservedThinkingForcedToolChoiceKeepsThinkingOff(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		thinking   string
+		toolChoice string
+	}{
+		{
+			name:       "omitted thinking with tool_choice any",
+			toolChoice: `{"type":"any"}`,
+		},
+		{
+			name:       "omitted thinking with tool_choice tool",
+			toolChoice: `{"type":"tool","name":"lookup"}`,
+		},
+		{
+			name:       "explicit adaptive thinking stripped by tool_choice any",
+			thinking:   `"thinking":{"type":"adaptive"},`,
+			toolChoice: `{"type":"any"}`,
+		},
+		{
+			name:       "explicit adaptive thinking stripped by tool_choice tool",
+			thinking:   `"thinking":{"type":"adaptive"},`,
+			toolChoice: `{"type":"tool","name":"lookup"}`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			payload := []byte(`{"model":"claude-haiku-5-5",` + tc.thinking + `"tools":[{"name":"lookup","input_schema":{"type":"object"}}],"tool_choice":` + tc.toolChoice + `,"messages":[{"role":"user","content":"hi"},{"role":"assistant","content":[{"type":"thinking","thinking":"earlier","signature":"` + preservedThinkingTestSignature + `"}]},{"role":"user","content":"continue"}]}`)
+			seenBody, _ := runClaudeExecutorCapture(t, nil, "", false, "claude-haiku-5-5", payload)
+			if gjson.GetBytes(seenBody, "thinking").Exists() {
+				t.Fatalf("forced tool_choice must keep thinking off: %s", seenBody)
+			}
+		})
+	}
+}
+
+func TestClaudeExecutor_PreservedThinkingInjectionKeepsCallerError(t *testing.T) {
+	payload := []byte(`{"model":"claude-haiku-5-5","thinking":{"type":"adaptive","block_binding":{"prefix_mismatch_behavior":"error"}},"messages":[{"role":"user","content":"hi"},{"role":"assistant","content":[{"type":"thinking","thinking":"earlier","signature":"` + preservedThinkingTestSignature + `"}]},{"role":"user","content":"continue"}]}`)
+	seenBody, _ := runClaudeExecutorCapture(t, nil, "", false, "claude-haiku-5-5", payload)
+	if got := gjson.GetBytes(seenBody, "thinking.block_binding.prefix_mismatch_behavior").String(); got != "error" {
+		t.Fatalf("caller prefix_mismatch_behavior = %q, want error preserved; body=%s", got, seenBody)
+	}
+}
+
+func TestClaudeExecutor_PayloadOverrideWinsOverPreservedThinkingInjection(t *testing.T) {
+	cfg := &config.Config{Payload: config.PayloadConfig{
+		Override: []config.PayloadRule{{
+			Models: []config.PayloadModelRule{{Name: "claude-haiku-5-5"}},
+			Params: map[string]any{"thinking.block_binding.prefix_mismatch_behavior": "error"},
+		}},
+	}}
+	seenBody, _ := runClaudeExecutorCapture(t, cfg, "", false, "claude-haiku-5-5", preservedThinkingReplayPayload("claude-haiku-5-5"))
+	if got := gjson.GetBytes(seenBody, "thinking.block_binding.prefix_mismatch_behavior").String(); got != "error" {
+		t.Fatalf("payload override must be the final barrier, got %q; body=%s", got, seenBody)
+	}
+}
+
+func TestClaudeExecutor_PreservedThinkingInjectionSkipsDisabledHaikuThinking(t *testing.T) {
+	payload := []byte(`{"model":"claude-haiku-5-5","thinking":{"type":"disabled"},"messages":[{"role":"user","content":"hi"},{"role":"assistant","content":[{"type":"thinking","thinking":"earlier","signature":"` + preservedThinkingTestSignature + `"}]},{"role":"user","content":"continue"}]}`)
+	seenBody, _ := runClaudeExecutorCapture(t, nil, "", false, "claude-haiku-5-5", payload)
+	if gjson.GetBytes(seenBody, "thinking.block_binding").Exists() {
+		t.Fatalf("block_binding with disabled thinking is rejected upstream on haiku-5-5: %s", seenBody)
+	}
+}
+
+func TestClaudeExecutor_PreservedThinkingInjectionSkipsBetweenToolsSonnetThinking(t *testing.T) {
+	payload := []byte(`{"model":"claude-sonnet-5-5","thinking":{"type":"between_tools"},"messages":[{"role":"user","content":"hi"},{"role":"assistant","content":[{"type":"thinking","thinking":"earlier","signature":"` + preservedThinkingTestSignature + `"}]},{"role":"user","content":"continue"}]}`)
+	seenBody, _ := runClaudeExecutorCapture(t, nil, "", false, "claude-sonnet-5-5", payload)
+	if gjson.GetBytes(seenBody, "thinking.block_binding").Exists() {
+		t.Fatalf("block_binding with between_tools thinking is rejected upstream on sonnet-5-5: %s", seenBody)
+	}
+}
+
+func TestClaudeExecutor_PreservedThinkingInjectionSkipsMythosModel(t *testing.T) {
+	seenBody, _ := runClaudeExecutorCapture(t, nil, "", false, "claude-mythos-5-1", preservedThinkingReplayPayload("claude-mythos-5-1"))
+	if gjson.GetBytes(seenBody, "thinking.block_binding").Exists() {
+		t.Fatalf("mythos-5-1 does not run the prefix check and must not gain block_binding: %s", seenBody)
+	}
+}
+
+func TestClaudeExecutor_PayloadFilterRemovesPreservedThinkingInjection(t *testing.T) {
+	cfg := &config.Config{Payload: config.PayloadConfig{
+		Filter: []config.PayloadFilterRule{{
+			Models: []config.PayloadModelRule{{Name: "claude-haiku-5-5"}},
+			Params: []string{"thinking.block_binding"},
+		}},
+	}}
+	seenBody, _ := runClaudeExecutorCapture(t, cfg, "", false, "claude-haiku-5-5", preservedThinkingReplayPayload("claude-haiku-5-5"))
+	if gjson.GetBytes(seenBody, "thinking.block_binding").Exists() {
+		t.Fatalf("payload filter must remove injected block_binding: %s", seenBody)
 	}
 }

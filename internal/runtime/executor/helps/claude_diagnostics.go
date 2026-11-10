@@ -630,3 +630,7 @@ func ExtractClaudeBillingTags(body []byte) (prevReq, promptID string) {
 	}
 	return prevReq, promptID
 }
+
+// IsClaudeQuotaProbeRequest excludes title helpers from quota-probe handling.
+// IsClaudeQuotaProbeRequest identifies the native quota probe separately from helper requests.
+func IsClaudeQuotaProbeRequest(body []byte) bool { return isClaudeProbeRequest(body) }

@@ -145,6 +145,7 @@ func (e *ClaudeExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
 	requestedModel := helps.PayloadRequestedModel(opts, req.Model)
 	requestPath := helps.PayloadRequestPath(opts)
 	var touchedPayloadPaths map[string]bool
+	body = applyClaudePreservedThinkingBinding(body)
 	body, touchedPayloadPaths = helps.ApplyPayloadConfigWithTrackedPaths(
 		e.cfg,
 		baseModel,
