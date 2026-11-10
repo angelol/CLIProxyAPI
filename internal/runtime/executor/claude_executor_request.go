@@ -1241,6 +1241,12 @@ func applyClaudeHeadersWithNativeProfile(
 		if isClaudeHaikuModel(reqModel) && !gjson.GetBytes(body, "fallbacks").Exists() {
 			baseBetas = withoutClaudeBeta(baseBetas, claudeServerSideFallbackBeta)
 		}
+		// The final body may include binding injected after native client detection.
+		// Preserve caller betas, but always negotiate this field in every mode,
+		// including native passthrough and count_tokens requests.
+		if gjson.GetBytes(body, "thinking.block_binding").Exists() {
+			appendBeta(claudeThinkingBindingBeta)
+		}
 
 		if strings.TrimSpace(baseBetas) == "" {
 			r.Header.Del("Anthropic-Beta")
