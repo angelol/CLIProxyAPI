@@ -1165,6 +1165,37 @@ func credentialRetryRoundStateEligible(lastErr *Error, quotaExceeded bool) bool 
 	return isCredentialRetryRoundStatus(statusCodeFromResult(lastErr))
 }
 
+// retryAvailabilityForSelectorLocked includes the same quota observation gate
+// as selection. Otherwise a quota-exhausted account with no runtime cooldown
+// causes immediate retry rounds while the usable accounts are still cooling.
+// The caller holds m.mu for reading.
+func (m *Manager) retryAvailabilityForSelectorLocked(auth *Auth, model string, now time.Time, providers []string) (bool, time.Time) {
+	eligible, next := retryRoundAvailabilityForAuth(auth, model, now)
+	if !eligible || auth.Provider != "claude" {
+		return eligible, next
+	}
+	for _, provider := range providers {
+		if strings.ToLower(strings.TrimSpace(provider)) != "claude" {
+			return eligible, next
+		}
+	}
+	selector := m.selector
+	for {
+		affinity, ok := selector.(*SessionAffinitySelector)
+		if !ok {
+			break
+		}
+		selector = affinity.fallback
+	}
+	if _, ok := selector.(*QuotaDeadlineSelector); ok {
+		_, _, quotaRecovery := quotaDeadlineScore(auth, now)
+		if quotaRecovery.After(next) {
+			next = quotaRecovery
+		}
+	}
+	return eligible, next
+}
+
 func (m *Manager) closestCooldownWait(providers []string, model string, attempt int, eligibility authSelectionEligibility, pinnedAuthID string, defaultRequestRetry int) (time.Duration, bool) {
 	return m.closestCooldownWaitWithAttempted(providers, model, attempt, eligibility, pinnedAuthID, defaultRequestRetry, 0, nil)
 }
@@ -1217,7 +1248,7 @@ func (m *Manager) closestCooldownWaitWithAttempted(providers []string, model str
 		if strings.TrimSpace(model) != "" {
 			checkModel = m.selectionModelForAuth(auth, model)
 		}
-		retryEligible, next := retryRoundAvailabilityForAuth(auth, checkModel, now)
+		retryEligible, next := m.retryAvailabilityForSelectorLocked(auth, checkModel, now, providers)
 		if !retryEligible {
 			continue
 		}
@@ -1309,7 +1340,7 @@ func (m *Manager) retryAllowed(attempt int, providers []string, model string, el
 		if strings.TrimSpace(model) != "" {
 			checkModel = m.selectionModelForAuth(auth, model)
 		}
-		if retryEligible, _ := retryRoundAvailabilityForAuth(auth, checkModel, now); retryEligible {
+		if retryEligible, _ := m.retryAvailabilityForSelectorLocked(auth, checkModel, now, providers); retryEligible {
 			return true
 		}
 	}
@@ -1453,7 +1484,8 @@ func isCredentialRetryRoundStatus(status int) bool {
 		http.StatusInternalServerError,
 		http.StatusBadGateway,
 		http.StatusServiceUnavailable,
-		http.StatusGatewayTimeout:
+		http.StatusGatewayTimeout,
+		529: // Anthropic overloaded_error
 		return true
 	default:
 		return false

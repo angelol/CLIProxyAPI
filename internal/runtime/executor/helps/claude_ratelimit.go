@@ -69,6 +69,14 @@ func isOverageOrFableOnlyRejection(headers http.Header, status5h, status7d, stat
 	if shared5hAllowed && shared7dAllowed {
 		return true
 	}
+	// Some subscriptions no longer report a 5h window at all. An explicit
+	// model-only rejection with a healthy shared weekly window must not cool
+	// down the entire credential. Partial or malformed 5h data stays ambiguous.
+	if shared7dAllowed && status7dOI == "rejected" && status5h == "" &&
+		getHeaderCaseInsensitive(headers, "Anthropic-Ratelimit-Unified-5h-Utilization") == "" &&
+		getHeaderCaseInsensitive(headers, "Anthropic-Ratelimit-Unified-5h-Reset") == "" {
+		return true
+	}
 
 	// When Anthropic evaluates an overage-only or 7d_oi claim, it often omits
 	// the 5h status header while 5h utilization is 0.00 (or vice versa).

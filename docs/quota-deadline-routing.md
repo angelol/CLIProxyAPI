@@ -164,3 +164,29 @@ go test -v ./sdk/cliproxy/auth -run TestQuotaDeadlineSimulation
 go build -o test-output ./cmd/server
 rm test-output
 ```
+
+## Bounded retries for temporary upstream failures
+
+For a pool that should tolerate short upstream outages, use:
+
+```yaml
+request-retry: 2
+max-retry-credentials: 0
+max-retry-interval: 30
+transient-error-cooldown-seconds: 10
+```
+
+The first round still tries all eligible accounts. Up to two additional rounds
+may follow, with at most 30 seconds of cooldown waiting per round (60 seconds
+total, excluding upstream execution time). Temporary errors, including Anthropic
+529 overloads, normally cool an account for 10 seconds; an upstream Retry-After
+is honored and a wait above the configured ceiling stops further retries.
+Cancellation stops waiting. Already-started response streams are not replayed.
+
+Retry scheduling respects the same shared quota observations as quota-deadline
+selection, including when wrapped in session affinity. An exhausted account
+cannot consume retry rounds while other accounts are still cooling down.
+
+An explicit Fable-specific rejection remains scoped to that model when the shared
+weekly window is allowed and the five-hour window is entirely absent. Explicit
+shared-window rejections and ambiguous partial five-hour data remain conservative.

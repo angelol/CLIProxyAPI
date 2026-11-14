@@ -792,3 +792,88 @@ func TestClaudeExecutor_AuthManager_MultiModelPoolStreamStopsProbingOn429(t *tes
 		t.Fatalf("attempts on cred2 = %d, want 1", got)
 	}
 }
+
+func TestClaudeExecutor_AuthManager_Fable429WithoutFiveHourWindowDoesNotBlockSiblingModels(t *testing.T) {
+	var attemptsSonnet atomic.Int32
+	var attemptsOpus atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		if strings.Contains(string(body), "claude-fable-5-2") {
+			attemptsSonnet.Add(1)
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Anthropic-Ratelimit-Unified-Status", "rejected")
+			w.Header().Set("Anthropic-Ratelimit-Unified-7d_oi-Status", "rejected")
+			w.Header().Set("Anthropic-Ratelimit-Unified-7d_oi-Utilization", "1.0")
+			w.Header().Set("Retry-After", "172800")
+			w.Header().Set("Anthropic-Ratelimit-Unified-7d-Status", "allowed")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte(`{"type":"error","error":{"type":"rate_limit_error","message":"Model rate limit exceeded."}}`))
+			return
+		}
+		attemptsOpus.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":"msg-opus","type":"message","role":"assistant","content":[{"type":"text","text":"hello from opus"}]}`))
+	}))
+	defer server.Close()
+
+	cfg := &config.Config{DisableCooling: false}
+	manager := cliproxyauth.NewManager(nil, nil, nil)
+	manager.SetRetryConfig(0, 0, 0)
+
+	executor := NewClaudeExecutor(cfg)
+	manager.RegisterExecutor(executor)
+
+	baseID := uuid.NewString()
+	auth := &cliproxyauth.Auth{
+		ID:       baseID + "-ordinary-429",
+		Provider: "claude",
+		Attributes: map[string]string{
+			"api_key":  "test-key",
+			"base_url": server.URL,
+		},
+	}
+
+	reg := registry.GetGlobalRegistry()
+	reg.RegisterClient(auth.ID, "claude", []*registry.ModelInfo{
+		{ID: "claude-fable-5-2"},
+		{ID: "claude-3-opus-20240229"},
+	})
+	t.Cleanup(func() {
+		reg.UnregisterClient(auth.ID)
+	})
+
+	if _, err := manager.Register(context.Background(), auth); err != nil {
+		t.Fatalf("register auth: %v", err)
+	}
+
+	// The Fable-specific limit must leave other models on this account available.
+	payloadSonnet := []byte(`{"messages":[{"role":"user","content":[{"type":"text","text":"hi"}]}]}`)
+	_, errSonnet := manager.Execute(context.Background(), []string{"claude"}, cliproxyexecutor.Request{
+		Model:   "claude-fable-5-2",
+		Payload: payloadSonnet,
+	}, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatClaude})
+	if errSonnet == nil {
+		t.Fatal("expected error on sonnet execute, got nil")
+	}
+	if attemptsSonnet.Load() != 1 {
+		t.Fatalf("sonnet attempts = %d, want 1", attemptsSonnet.Load())
+	}
+
+	// A sibling request goes through the real executor to the same HTTP upstream.
+	payloadOpus := []byte(`{"messages":[{"role":"user","content":[{"type":"text","text":"hi opus"}]}]}`)
+	respOpus, errOpus := manager.Execute(context.Background(), []string{"claude"}, cliproxyexecutor.Request{
+		Model:   "claude-3-opus-20240229",
+		Payload: payloadOpus,
+	}, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatClaude})
+	if errOpus != nil {
+		t.Fatalf("expected opus to succeed on same credential, got error: %v", errOpus)
+	}
+	if len(respOpus.Payload) == 0 {
+		t.Fatal("expected non-empty response for opus")
+	}
+	if attemptsOpus.Load() != 1 {
+		t.Fatalf("opus attempts = %d, want 1", attemptsOpus.Load())
+	}
+}
